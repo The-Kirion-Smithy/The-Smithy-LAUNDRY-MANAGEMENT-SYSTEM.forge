@@ -34,6 +34,9 @@ class P1OfflineStorageAndroidTest {
         }
         app.getSharedPreferences("kirion_migration_v1", Context.MODE_PRIVATE)
             .edit().clear().commit()
+        // Instrumentation tests create disposable app installations; production never clears keys.
+        app.getSharedPreferences("kirion_database_key_metadata", Context.MODE_PRIVATE)
+            .edit().clear().commit()
     }
 
     @Test
@@ -126,4 +129,42 @@ class P1OfflineStorageAndroidTest {
         }
         recovered.close()
     }
+    @Test
+    fun freshEncryptedRepositoryPerformsOfflineIntakeToPaidPickupAndOutboxSurvivesRestart() = runBlocking {
+        val db = LegacyMigration.openOrMigrate(app)
+        val repository = SecureLaundryRepository(db)
+        repository.addService("Test Laundry Service", "kg", "75.00", "24")
+        val service = repository.snapshot().services.single()
+        val ticket = repository.createOrder(
+            "Test Customer Gamma", "0000000011", service.id, "2.5", "50.00", "Cash"
+        )
+        var order = repository.snapshot().orders.single()
+        assertEquals(ticket, order.ticket)
+        assertEquals(18750L, order.totalCents)
+        assertEquals(5000L, order.paidCents)
+        for (stage in listOf("WASHING", "DRYING", "FOLDING", "READY")) {
+            repository.advance(order.id)
+            order = repository.snapshot().orders.single()
+            assertEquals(stage, order.stage.name)
+        }
+        try {
+            repository.advance(order.id)
+            throw AssertionError("Pickup of unpaid laundry should have been rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected: no payment, no pickup.
+        }
+        repository.recordPayment(order.id, "137.50", "Cash", "REC-TEST")
+        repository.advance(order.id)
+        order = repository.snapshot().orders.single()
+        assertEquals("PICKED_UP", order.stage.name)
+        assertEquals(18750L, order.paidCents)
+        assertTrue(repository.snapshot().pendingSync > 0)
+        db.close()
+        val reopened = LegacyMigration.openOrMigrate(app)
+        val persisted = SecureLaundryRepository(reopened).snapshot()
+        assertEquals("PICKED_UP", persisted.orders.single().stage.name)
+        assertTrue(persisted.pendingSync > 0)
+        reopened.close()
+    }
+
 }
