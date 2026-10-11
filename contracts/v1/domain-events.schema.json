@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Typed Kirion outbox event payloads v1",
+  "allOf": [
+    {
+      "$ref": "event-envelope.schema.json"
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": {
+          "const": "payment.recorded"
+        },
+        "aggregate_type": {
+          "const": "payment"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "order_id",
+            "payment_id",
+            "amount_cents",
+            "method"
+          ],
+          "properties": {
+            "order_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "payment_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "amount_cents": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "method": {
+              "enum": [
+                "Cash",
+                "GCash",
+                "Bank transfer",
+                "Card"
+              ]
+            },
+            "reference": {
+              "type": "string",
+              "maxLength": 150
+            }
+          }
+        }
+      },
+      "required": [
+        "event_type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "order.created"
+        },
+        "aggregate_type": {
+          "const": "order"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "ticket_id",
+            "customer_id",
+            "order_lines",
+            "total_cents",
+            "promised_at"
+          ],
+          "properties": {
+            "ticket_id": {
+              "type": "string",
+              "minLength": 16
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "order_lines": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "service_id",
+                  "unit",
+                  "quantity_decimal",
+                  "unit_price_cents",
+                  "line_total_cents"
+                ],
+                "properties": {
+                  "service_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "unit": {
+                    "enum": [
+                      "kg",
+                      "item",
+                      "flat"
+                    ]
+                  },
+                  "quantity_decimal": {
+                    "type": "string",
+                    "pattern": "^[0-9]+(\\.[0-9]{1,2})?$"
+                  },
+                  "unit_price_cents": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "line_total_cents": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "catalog_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
+                }
+              }
+            },
+            "total_cents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "promised_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      },
+      "required": [
+        "event_type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "order.stage_advanced"
+        },
+        "aggregate_type": {
+          "const": "stage"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "order_id",
+            "from_stage",
+            "to_stage"
+          ],
+          "properties": {
+            "order_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "from_stage": {
+              "enum": [
+                "RECEIVED",
+                "WASHING",
+                "DRYING",
+                "FOLDING",
+                "READY"
+              ]
+            },
+            "to_stage": {
+              "enum": [
+                "WASHING",
+                "DRYING",
+                "FOLDING",
+                "READY",
+                "PICKED_UP"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "event_type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "event_type": {
+          "enum": [
+            "customer.created",
+            "service.created",
+            "order.void_requested",
+            "service.price_draft_created"
+          ]
+        }
+      },
+      "required": [
+        "event_type"
+      ]
+    }
+  ]
+}
