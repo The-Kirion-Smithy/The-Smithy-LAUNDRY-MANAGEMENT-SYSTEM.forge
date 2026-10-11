@@ -200,25 +200,33 @@ abstract class SecureLocalDatabase : RoomDatabase() {
 }
 
 /**
- * Fail closed when the existing plaintext legacy database exists. The migration engine is
- * deliberately not fabricated: see ADR-005. Do not call open() on a device with existing
- * real/legacy data until a separate migration PR is accepted.
+ * A separate staging database is created during verified migration/restore.
+ * Neither staging nor existing secure data is ever replaced by Room's destructive migration.
  */
 object SecureLocalDatabaseFactory {
-    private const val TARGET = "kirion_lms_secure.db"
-    private const val LEGACY = "kirion_laundry_prototype.db"
+    const val TARGET = "kirion_lms_secure.db"
+    const val LEGACY = "kirion_laundry_prototype.db"
 
     fun open(context: Context): SecureLocalDatabase {
-        check(!context.getDatabasePath(LEGACY).exists()) {
-            "Legacy plaintext database detected. Verified encrypted migration is required; refusing to start a second empty business database."
+        val app = context.applicationContext
+        check(!app.getDatabasePath(LEGACY).exists() ||
+            app.getSharedPreferences("kirion_migration_v1", Context.MODE_PRIVATE)
+                .getBoolean("promoted_and_verified", false)) {
+            "Unmigrated plaintext v1 database. Use LegacyMigration.openOrMigrate() first."
         }
+        return openNamed(app, TARGET)
+    }
+
+    internal fun openNamed(context: Context, name: String): SecureLocalDatabase {
         System.loadLibrary("sqlcipher")
         val passphrase = DeviceDatabaseKey.getOrCreate(context.applicationContext)
-        try {
-            val factory = SupportOpenHelperFactory(passphrase)
-            return Room.databaseBuilder(
-                context.applicationContext, SecureLocalDatabase::class.java, TARGET
-            ).openHelperFactory(factory).build()
+        return try {
+            Room.databaseBuilder(
+                context.applicationContext, SecureLocalDatabase::class.java, name
+            )
+                .openHelperFactory(SupportOpenHelperFactory(passphrase))
+                .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+                .build()
         } catch (failure: Exception) {
             passphrase.fill(0)
             throw failure
