@@ -1,0 +1,50 @@
+name: P1 encrypted storage Android emulator acceptance
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - ".github/workflows/p1-android-emulator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p1-storage-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Enable KVM access for Android emulator
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          fi
+      - name: Run real Android SQLite / SQLCipher instrumentation on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_3a
+          ram-size: 2048M
+          disk-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
+          disable-animations: true
+          script: gradle --no-daemon :app:connectedDebugAndroidTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p1-android-instrumentation-results
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn
