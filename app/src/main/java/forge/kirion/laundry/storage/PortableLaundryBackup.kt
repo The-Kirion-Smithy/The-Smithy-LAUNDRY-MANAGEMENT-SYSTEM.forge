@@ -113,11 +113,14 @@ object PortableLaundryBackup {
                         connection.insert(table, SQLiteDatabase.CONFLICT_ABORT, columns)
                     }
                 }
-                // A restored device is never allowed to impersonate the origin device.
+            }
+            // Validate exact restored snapshot before appending replacement-device metadata.
+            validate(db, tables)
+            db.withTransaction {
+                // A restored device must never impersonate the original device.
                 db.secureDao().putMeta(SecureMeta("device_id", UUID.randomUUID().toString()))
                 db.secureDao().putMeta(SecureMeta("restore_state", "REQUIRES_ENROLLMENT"))
             }
-            validate(db, tables)
             db.close()
             stage = null
             check(!target.exists()) { "Destination appeared during restore" }
