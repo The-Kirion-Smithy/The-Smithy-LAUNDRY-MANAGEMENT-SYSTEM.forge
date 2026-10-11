@@ -35,7 +35,19 @@ object LegacyMigration {
         val legacyFile = context.getDatabasePath(SecureLocalDatabaseFactory.LEGACY)
         val targetFile = context.getDatabasePath(SecureLocalDatabaseFactory.TARGET)
         val state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!legacyFile.exists()) return SecureLocalDatabaseFactory.open(context)
+        if (!legacyFile.exists()) {
+            val fresh = SecureLocalDatabaseFactory.open(context)
+            kotlinx.coroutines.runBlocking {
+                fresh.withTransaction {
+                    val dao = fresh.secureDao()
+                    if (dao.getMeta("device_id") == null)
+                        dao.putMeta(SecureMeta("device_id", UUID.randomUUID().toString()))
+                    if (dao.getMeta("catalog_source") == null)
+                        dao.putMeta(SecureMeta("catalog_source", "UNVERIFIED_LEGACY"))
+                }
+            }
+            return fresh
+        }
 
         if (targetFile.exists()) {
             check(state.getBoolean(PROMOTED, false)) {
