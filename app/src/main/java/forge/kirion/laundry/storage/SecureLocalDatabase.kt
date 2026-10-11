@@ -135,6 +135,38 @@ interface SecureLocalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun putMeta(meta: SecureMeta)
 
+    @Query("SELECT value FROM secure_meta WHERE key=:key LIMIT 1")
+    suspend fun getMeta(key: String): String?
+
+    @Query("SELECT * FROM secure_services WHERE id=:id AND active=1 LIMIT 1")
+    suspend fun getService(id: String): SecureService?
+
+    @Query("SELECT id FROM secure_customers WHERE name=:name AND phone=:phone AND deleted=0 LIMIT 1")
+    suspend fun existingCustomerId(name: String, phone: String): String?
+
+    @Query("UPDATE secure_orders SET stage=:stage,updated_at=:timestamp WHERE id=:id AND stage=:expected AND deleted=0")
+    suspend fun advanceStageIfCurrent(id: String, expected: String, stage: String, timestamp: Long): Int
+
+    @Transaction
+    suspend fun commitService(service: SecureService, mutation: SecureOutbox) {
+        require(service.name.isNotBlank() && service.priceCents >= 0)
+        require(mutation.aggregateId == service.id && mutation.eventType == "service.created")
+        require(mutation.status == "PENDING")
+        insertService(service)
+        insertOutbox(mutation)
+    }
+
+    @Transaction
+    suspend fun commitStage(order: SecureOrder, next: String, event: SecureStageEvent, mutation: SecureOutbox) {
+        require(event.orderId == order.id && event.fromStage == order.stage && event.toStage == next)
+        require(mutation.aggregateId == order.id && mutation.eventType == "order.stage_advanced")
+        require(mutation.status == "PENDING")
+        val changed = advanceStageIfCurrent(order.id, order.stage, next, event.createdAt)
+        require(changed == 1) { "Order stage changed concurrently" }
+        insertStage(event)
+        insertOutbox(mutation)
+    }
+
     @Query("SELECT * FROM secure_orders WHERE id=:id LIMIT 1")
     suspend fun getOrder(id: String): SecureOrder?
 
