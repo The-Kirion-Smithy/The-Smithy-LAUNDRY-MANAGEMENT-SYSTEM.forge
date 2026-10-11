@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kirion.invalid/contracts/v1/event-envelope.schema.json",
+  "title": "Kirion LMS immutable local outbox envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "aggregate_id",
+    "aggregate_type",
+    "event_type",
+    "origin_device_id",
+    "origin_sequence",
+    "actor_id",
+    "occurred_at",
+    "base_revision",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "shop_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "aggregate_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "aggregate_type": {
+      "type": "string",
+      "enum": [
+        "customer",
+        "service",
+        "order",
+        "payment",
+        "stage"
+      ]
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "customer.created",
+        "service.created",
+        "order.created",
+        "payment.recorded",
+        "order.stage_advanced",
+        "order.void_requested",
+        "service.price_draft_created"
+      ]
+    },
+    "origin_device_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "origin_sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "actor_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "base_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reconciliation": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "ACKNOWLEDGED",
+        "CONFLICT",
+        "RETRYABLE_ERROR"
+      ]
+    }
+  }
+}

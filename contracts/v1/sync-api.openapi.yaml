@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info:
+  title: Kirion Laundry local-hub sync boundary (reserved contract)
+  version: 0.1.0
+  description: >
+    P1 CONTRACT ONLY. No hub implementation or real ACK semantics exist in P1.
+    LAN authentication is required in future P4; Cloudflare private routing is transport only.
+servers:
+  - url: https://{hub-host}/api/v1
+    variables:
+      hub-host:
+        default: hub.local.invalid
+paths:
+  /sync/events:
+    post:
+      summary: Future authenticated idempotent event upload
+      description: >
+        Must persist exactly one authoritative result per event_id. No blind database replication;
+        rejected financial conflicts are explicit and must not become ACKs.
+      security:
+        - deviceSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '200':
+          description: Per-event authoritative result; partial rejection allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [event_id, status]
+                      properties:
+                        event_id: { type: string, format: uuid }
+                        status: { type: string, enum: [ACKNOWLEDGED, CONFLICT, RETRYABLE_ERROR] }
+                        authoritative_revision: { type: integer, minimum: 0 }
+                        conflict_code: { type: string }
+        '401': { description: Session not authorized }
+        '409': { description: Aggregate revision or custody conflict }
+  /sync/changes:
+    get:
+      summary: Future incremental pull from hub
+      security:
+        - deviceSession: []
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Authorized committed changes with opaque next cursor }
+        '401': { description: Session not authorized }
+components:
+  securitySchemes:
+    deviceSession:
+      type: http
+      scheme: bearer
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [schema_version, event_id, aggregate_id, aggregate_type, event_type, origin_device_id, origin_sequence, actor_id, occurred_at, base_revision, payload]
+      properties:
+        schema_version: { type: integer, enum: [1] }
+        event_id: { type: string, format: uuid }
+        shop_id: { type: string, format: uuid, nullable: true }
+        aggregate_id: { type: string, format: uuid }
+        aggregate_type: { type: string }
+        event_type: { type: string }
+        origin_device_id: { type: string, format: uuid }
+        origin_sequence: { type: integer, minimum: 1 }
+        actor_id: { type: string, nullable: true }
+        occurred_at: { type: string, format: date-time }
+        base_revision: { type: integer, nullable: true }
+        payload: { type: object }

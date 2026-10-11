@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Local UI state with catalog provenance",
+  "type": "object",
+  "required": [
+    "current_device_id",
+    "shop_id",
+    "write_state",
+    "catalog"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "current_device_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "shop_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "write_state": {
+      "enum": [
+        "SAVED_LOCALLY",
+        "PENDING_SYNC",
+        "ACKNOWLEDGED",
+        "CONFLICT",
+        "RETRYABLE_ERROR"
+      ]
+    },
+    "ack_source": {
+      "enum": [
+        "HUB",
+        null
+      ]
+    },
+    "ack_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "catalog": {
+      "type": "object",
+      "required": [
+        "revision",
+        "last_verified_at",
+        "source"
+      ],
+      "properties": {
+        "revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "last_verified_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "source": {
+          "enum": [
+            "HUB_ACKNOWLEDGED",
+            "OFFLINE_CACHE",
+            "UNVERIFIED_LEGACY"
+          ]
+        }
+      }
+    },
+    "storage_error": {
+      "enum": [
+        "DISK_FULL",
+        "KEY_UNAVAILABLE",
+        "MIGRATION_FAILED",
+        "RESTORE_FAILED",
+        null
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "write_state": {
+            "const": "ACKNOWLEDGED"
+          }
+        },
+        "required": [
+          "write_state"
+        ]
+      },
+      "then": {
+        "required": [
+          "ack_source",
+          "ack_revision"
+        ],
+        "properties": {
+          "ack_source": {
+            "const": "HUB"
+          },
+          "ack_revision": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  ]
+}
