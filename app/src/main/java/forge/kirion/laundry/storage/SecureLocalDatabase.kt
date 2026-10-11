@@ -250,6 +250,11 @@ object SecureLocalDatabaseFactory {
     }
 
     internal fun openNamed(context: Context, name: String): SecureLocalDatabase {
+        if (name == TARGET && !context.getDatabasePath(TARGET).exists() &&
+            context.getSharedPreferences("kirion_database_key_metadata", Context.MODE_PRIVATE)
+                .contains("ciphertext_b64")) {
+            error("Existing encrypted data is missing; refusing to create an empty replacement")
+        }
         System.loadLibrary("sqlcipher")
         val passphrase = DeviceDatabaseKey.getOrCreate(context.applicationContext)
         return try {
