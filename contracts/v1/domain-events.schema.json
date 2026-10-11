@@ -13,7 +13,7 @@
           "const": "payment.recorded"
         },
         "aggregate_type": {
-          "const": "payment"
+          "const": "order"
         },
         "payload": {
           "type": "object",
@@ -151,7 +151,7 @@
           "const": "order.stage_advanced"
         },
         "aggregate_type": {
-          "const": "stage"
+          "const": "order"
         },
         "payload": {
           "type": "object",
